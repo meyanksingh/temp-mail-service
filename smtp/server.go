@@ -1,19 +1,20 @@
 package smtp
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"net"
 	"time"
 
-	"github.com/DusanKasan/parsemail"
+	"net/mail"
+
 	"github.com/emersion/go-smtp"
 	"github.com/meyanksingh/smtp-server/logger"
 	"github.com/meyanksingh/smtp-server/models"
+	"github.com/meyanksingh/smtp-server/redis"
 
 	"errors"
-	"strings"
-
-	db "github.com/meyanksingh/smtp-server/db"
 )
 
 type MailHandler struct{}
@@ -53,40 +54,44 @@ func (s *MailSession) Rcpt(to string, opts *smtp.RcptOptions) error {
 func (s *MailSession) Data(r io.Reader) error {
 	logger.Info("[SMTP] Receiving email data from %s to %v", s.from, s.to)
 
-	email, err := parsemail.Parse(r) // Use r directly as the reader
+	email, err := mail.ReadMessage(r)
 	if err != nil {
 		logger.Error("[SMTP] Error parsing email: %v", err)
 		return err
 	}
 
-	fromAddrs := make([]string, len(email.From))
-	for i, addr := range email.From {
-		fromAddrs[i] = addr.String()
+	bodyBytes, err := io.ReadAll(email.Body)
+	if err != nil {
+		logger.Error("[SMTP] Error reading email body: %v", err)
+		return err
 	}
+	bodyStr := string(bodyBytes)
 
-	toAddrs := make([]string, len(email.To))
-	for i, addr := range email.To {
-		toAddrs[i] = addr.String()
-	}
+	from := email.Header.Get("From")
+	to := email.Header.Get("To")
+	subject := email.Header.Get("Subject")
 
-	logger.Info("[SMTP] Email parsed - Subject: %s, From: %s, To: %s",
-		email.Subject,
-		strings.Join(fromAddrs, ","),
-		strings.Join(toAddrs, ","))
+	logger.Info("[SMTP] Email parsed - Subject: %s, From: %s, To: %s", subject, from, to)
 
 	message := models.Message{
-		From:    strings.Join(fromAddrs, ","),
-		To:      strings.Join(toAddrs, ","),
-		Subject: email.Subject,
-		Body:    email.HTMLBody,
+		From:    from,
+		To:      to,
+		Subject: subject,
+		Body:    bodyStr,
 	}
 
-	if db.DB.Create(&message).Error != nil {
-		logger.Error("[SMTP] Failed to save message to database")
-		return errors.New("failed to create message")
+	messageStr := fmt.Sprintf("From:%s\nTo:%s\nSubject:%s\nBody:%s", message.From, message.To, message.Subject, message.Body)
+
+	ctx := context.Background()
+	err = redis.RedisClient.LPush(ctx, message.To, messageStr).Err()
+	if err != nil {
+		logger.Error("[SMTP] Failed to save message to Redis: %v", err)
+		return errors.New("failed to store message")
 	}
 
-	logger.Info("[SMTP] Email successfully saved to database (ID: %d)", message.ID)
+	redis.RedisClient.Expire(ctx, message.To, 10*time.Minute)
+
+	logger.Info("[SMTP] Email successfully saved to Redis for recipient: %s", message.To)
 	return nil
 }
 

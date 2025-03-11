@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	db "github.com/meyanksingh/smtp-server/db"
 	"github.com/meyanksingh/smtp-server/logger"
+	"github.com/meyanksingh/smtp-server/redis"
 	"github.com/meyanksingh/smtp-server/server"
 	"github.com/meyanksingh/smtp-server/smtp"
 )
@@ -25,10 +25,6 @@ func main() {
 		logger.Fatal("Error loading environment file: %v", err)
 	}
 	logger.Info("Environment variables loaded successfully")
-
-	logger.Info("Setting up database connection")
-	db.ConnectDB()
-	logger.Info("Database connection established")
 
 	logger.Info("Reading configuration from environment")
 	host := os.Getenv("HOST")
@@ -53,6 +49,10 @@ func main() {
 	logger.Info("Configuration - Host: %s, SMTP Port: %s, HTTP Port: %s", host, smtpPort, httpPort)
 	logger.Info("Application initialized in %v", time.Since(startTime))
 	logger.Info("Starting servers...")
+
+	logger.Info("Starting Redis connection...")
+	redis.InitRedis()
+	logger.Info("Redis connection established")
 
 	go func() {
 		logger.Info("Starting HTTP server...")
