@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  custom-broker-backend:
+    image: meyanksingh/custom-broker-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://sova-backend-main_owner:npg_1gFfGhMva6nH@ep-shrill-flower-a4b1ho0t-pooler.us-east-1.aws.neon.tech/sova-backend-main?sslmode=require
+      - JWT_SECRET=randi
+      - RABBITMQ_URL=amqp://guest:guest@4.240.83.251:5672/
+      - REDIS_URL=redis://default:jqrUmqQdskdBRpIZHjKtVxyhkvUTQlAN@yamanote.proxy.rlwy.net:33749
+      - PORT=8080
+      - ALLOWED_ORIGIN=https://sova.meyank.me/,http://localhost:3000
+
+  smtp-server:
+    image: meyanksingh/smtp-server
+    ports:
+      - "25:25"
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://Mail-Server_owner:npg_2zIpCR9hGTQx@ep-frosty-cell-a17lizei-pooler.ap-southeast-1.aws.neon.tech/Mail-Server?sslmode=require
+      - HOST=meyank.me
+      - PORT=25
+      - LOG_LEVEL=debug
+      - HTTP_PORT=8000
