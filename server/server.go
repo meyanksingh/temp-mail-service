@@ -1,15 +1,17 @@
 package server
 
 import (
+	"context"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	db "github.com/meyanksingh/smtp-server/db"
 	"github.com/meyanksingh/smtp-server/logger"
 	"github.com/meyanksingh/smtp-server/models"
+	"github.com/meyanksingh/smtp-server/redis"
 )
 
 func generateRandomString(length int) string {
@@ -25,14 +27,38 @@ func generateRandomString(length int) string {
 
 func getRandomEmail(email string) []models.Message {
 	logger.Info("Fetching emails for: %s", email)
-	var messages []models.Message
-	result := db.DB.Where(`"to" = ?`, email).Find(&messages)
-	if result.Error != nil {
-		logger.Error("Error fetching emails: %v", result.Error)
+
+	ctx := context.Background()
+	messageStrs, err := redis.RedisClient.LRange(ctx, email, 0, -1).Result()
+	if err != nil {
+		logger.Error("Error fetching emails from Redis: %v", err)
 		return []models.Message{}
 	}
 
-	logger.Info("Found %d messages for %s", len(messages), email)
+	if len(messageStrs) == 0 {
+		logger.Info("No messages found for: %s", email)
+		return []models.Message{}
+	}
+
+	var messages []models.Message
+	for _, messageStr := range messageStrs {
+		lines := strings.Split(messageStr, "\n")
+		if len(lines) < 4 {
+			logger.Error("Malformed message retrieved from Redis")
+			continue
+		}
+
+		message := models.Message{
+			From:    strings.TrimPrefix(lines[0], "From:"),
+			To:      strings.TrimPrefix(lines[1], "To:"),
+			Subject: strings.TrimPrefix(lines[2], "Subject:"),
+			Body:    strings.TrimPrefix(lines[3], "Body:"),
+		}
+
+		messages = append(messages, message)
+	}
+
+	logger.Info("Retrieved %d messages from Redis for %s", len(messages), email)
 	return messages
 }
 
@@ -51,7 +77,9 @@ func HandleTempMail(c *gin.Context) {
 		host = "meyank.me"
 		logger.Warn("HOST environment variable not set, using default: meyank.me")
 	}
-	randomEmail := generateRandomString(10) + "@" + host
+	hosts := strings.Split(host, ",")
+	randomHost := hosts[rand.Intn(len(hosts))]
+	randomEmail := generateRandomString(10) + "@" + randomHost
 	logger.Info("Generated temporary email: %s", randomEmail)
 	c.JSON(200, gin.H{"email": randomEmail})
 }
