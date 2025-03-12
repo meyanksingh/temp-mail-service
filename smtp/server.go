@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"net/mail"
@@ -74,8 +75,8 @@ func (s *MailSession) Data(r io.Reader) error {
 	logger.Info("[SMTP] Email parsed - Subject: %s, From: %s, To: %s", subject, from, to)
 
 	message := models.Message{
-		From:    from,
-		To:      to,
+		From:    strings.ToLower(from),
+		To:      strings.ToLower(to),
 		Subject: subject,
 		Body:    bodyStr,
 	}
@@ -89,7 +90,7 @@ func (s *MailSession) Data(r io.Reader) error {
 		return errors.New("failed to store message")
 	}
 
-	redis.RedisClient.Expire(ctx, message.To, 10*time.Minute)
+	redis.RedisClient.Expire(ctx, message.To, 20*time.Minute)
 
 	logger.Info("[SMTP] Email successfully saved to Redis for recipient: %s", message.To)
 	return nil
