@@ -101,14 +101,12 @@ func StartServer(port string) {
 	router := gin.New()
 
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{"https://tempmail.meyank.me"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-
-	logger.Info("CORS middleware configured to allow all origins")
 
 	router.Use(gin.Recovery())
 
@@ -123,7 +121,16 @@ func StartServer(port string) {
 	})
 
 	router.GET("/tempmail", HandleTempMail)
-	router.GET("/tempmail/:email", getEmailHandler)
+	router.GET("/tempmail/:email", func(c *gin.Context) {
+		referer := c.Request.Referer()
+		logger.Info("Referer: %s", referer)
+		allowedReferer := "https://tempmail.meyank.me"
+		if referer == "" || !strings.HasPrefix(referer, allowedReferer) {
+			c.AbortWithStatusJSON(403, gin.H{"error": "Access Denied"})
+			return
+		}
+		getEmailHandler(c)
+	})
 	logger.Info("HTTP server routes configured, starting on port %s", port)
 
 	if err := router.Run("0.0.0.0:" + port); err != nil {
