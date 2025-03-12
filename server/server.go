@@ -42,17 +42,26 @@ func getRandomEmail(email string) []models.Message {
 
 	var messages []models.Message
 	for _, messageStr := range messageStrs {
-		lines := strings.Split(messageStr, "\n")
-		if len(lines) < 4 {
-			logger.Error("Malformed message retrieved from Redis")
-			continue
+		message := models.Message{
+			From:    "",
+			To:      "",
+			Subject: "",
+			Body:    messageStr,
 		}
 
-		message := models.Message{
-			From:    strings.TrimPrefix(lines[0], "From:"),
-			To:      strings.TrimPrefix(lines[1], "To:"),
-			Subject: strings.TrimPrefix(lines[2], "Subject:"),
-			Body:    strings.TrimPrefix(lines[3], "Body:"),
+		lines := strings.Split(messageStr, "\n")
+		for _, line := range lines {
+			switch {
+			case strings.HasPrefix(line, "From:"):
+				message.From = strings.TrimPrefix(line, "From:")
+			case strings.HasPrefix(line, "To:"):
+				message.To = strings.TrimPrefix(line, "To:")
+			case strings.HasPrefix(line, "Subject:"):
+				message.Subject = strings.TrimPrefix(line, "Subject:")
+			}
+			if message.From != "" && message.To != "" && message.Subject != "" {
+				break
+			}
 		}
 
 		messages = append(messages, message)
