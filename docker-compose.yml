@@ -3,7 +3,7 @@ version: '3.8'
 services:
 
   smtp-server:
-    image: meyanksingh/smtp-server
+    image: meyanksingh/temp-mail-service
     ports:
       - "25:25"
       - "8000:8000"
@@ -12,7 +12,7 @@ services:
       - PORT=25
       - LOG_LEVEL=debug
       - HTTP_PORT=8000
-      - REDIS_URL=redis://redis-server:6379
+      - ALLOWED_ORIGINS=http://localhost:3000,https://mail.meyank.me
     depends_on:
       - redis-server
 
