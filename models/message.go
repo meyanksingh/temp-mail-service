@@ -3,7 +3,7 @@ package models
 import "time"
 
 type Message struct {
-	ID        uint `gorm:"primaryKey"`
+	ID        uint `gorm:"primaryKey;autoIncrement"`
 	From      string
 	To        string
 	Subject   string
