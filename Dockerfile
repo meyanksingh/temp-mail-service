@@ -10,6 +10,7 @@ COPY . .
 
 RUN go build -o main main.go
 
-EXPOSE 25 8000
+EXPOSE 8000
 
 CMD ["./main"]
+
