@@ -41,27 +41,47 @@ func getRandomEmail(email string) []models.Message {
 	}
 
 	var messages []models.Message
-	for _, messageStr := range messageStrs {
+	for i, messageStr := range messageStrs {
 		message := models.Message{
-			From:    "",
-			To:      "",
-			Subject: "",
-			Body:    messageStr,
+			ID:        uint(i),
+			From:      "",
+			To:        "",
+			Subject:   "",
+			Body:      "",
+			CreatedAt: time.Now(),
 		}
 
 		lines := strings.Split(messageStr, "\n")
+		var bodyStarted bool
+		var bodyLines []string
+
 		for _, line := range lines {
+			if bodyStarted {
+				bodyLines = append(bodyLines, line)
+				continue
+			}
+			if strings.HasPrefix(line, "Body:") {
+				bodyStarted = true
+				bodyContent := strings.TrimPrefix(line, "Body:")
+				bodyLines = append(bodyLines, bodyContent)
+				continue
+			}
 			switch {
 			case strings.HasPrefix(line, "From:"):
-				message.From = strings.TrimPrefix(line, "From:")
+				message.From = strings.TrimSpace(strings.TrimPrefix(line, "From:"))
 			case strings.HasPrefix(line, "To:"):
-				message.To = strings.TrimPrefix(line, "To:")
+				message.To = strings.TrimSpace(strings.TrimPrefix(line, "To:"))
 			case strings.HasPrefix(line, "Subject:"):
-				message.Subject = strings.TrimPrefix(line, "Subject:")
+				message.Subject = strings.TrimSpace(strings.TrimPrefix(line, "Subject:"))
+			case strings.HasPrefix(line, "Time:"):
+				timeStr := strings.TrimSpace(strings.TrimPrefix(line, "Time:"))
+				t, _ := time.Parse(time.RFC3339, timeStr)
+				message.CreatedAt = t
 			}
-			if message.From != "" && message.To != "" && message.Subject != "" {
-				break
-			}
+		}
+
+		if len(bodyLines) > 0 {
+			message.Body = strings.Join(bodyLines, "\n")
 		}
 
 		messages = append(messages, message)

@@ -81,7 +81,7 @@ func (s *MailSession) Data(r io.Reader) error {
 		Body:    bodyStr,
 	}
 
-	messageStr := fmt.Sprintf("From:%s\nTo:%s\nSubject:%s\nBody:%s", message.From, message.To, message.Subject, message.Body)
+	messageStr := fmt.Sprintf("From:%s\nTo:%s\nSubject:%s\nTime:%s\nBody:%s", message.From, message.To, message.Subject, time.Now().Format(time.RFC3339), message.Body)
 
 	ctx := context.Background()
 	err = redis.RedisClient.LPush(ctx, message.To, messageStr).Err()
@@ -90,7 +90,7 @@ func (s *MailSession) Data(r io.Reader) error {
 		return errors.New("failed to store message")
 	}
 
-	redis.RedisClient.Expire(ctx, message.To, 20*time.Minute)
+	redis.RedisClient.Expire(ctx, message.To, 30*time.Minute)
 
 	logger.Info("[SMTP] Email successfully saved to Redis for recipient: %s", message.To)
 	return nil
